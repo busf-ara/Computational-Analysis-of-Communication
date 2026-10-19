@@ -1,2 +1,7 @@
 # R data files (Ignore all .rds files with the example data so they don't get pushed)
 *.rds
+
+#Py enviroments
+venv/
+env/
+__pycache__/
