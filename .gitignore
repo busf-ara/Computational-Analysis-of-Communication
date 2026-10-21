@@ -1,0 +1,16 @@
+# R data files (Ignore all .rds files with the example data so they don't get pushed)
+*.rds
+
+#the converted csv file 
+all_multi_parapgraphs_2022_2026.csv 
+
+#Py enviroments
+venv/
+env/
+__pycache__/
+.Rproj.user
+
+# sampledata 
+OLD_pargraphs.csv
+sample_for_llm.jsonl
+
