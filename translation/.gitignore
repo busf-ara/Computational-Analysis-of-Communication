@@ -1,0 +1,12 @@
+# Local Python environment (each person creates their own)
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# Office temp/lock files
+~$*
+.DS_Store
+
+# Never commit API keys
+.env
+*.key
