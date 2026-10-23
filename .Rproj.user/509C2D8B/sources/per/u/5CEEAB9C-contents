@@ -1,0 +1,4 @@
+data <- readRDS("all_multi_paragraphs_2022_2026.RDS")
+
+library(readr)
+write_csv(data, "paragraphs.csv")
