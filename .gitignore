@@ -1,8 +1,11 @@
 # R data files (Ignore all .rds files with the example data so they don't get pushed)
 *.rds
 
-#the converted csv file 
+#datafiles
 all_multi_parapgraphs_2022_2026.csv 
+warmth_annotation_results.xlsx
+sample_5k_translated.xlxs
+
 
 #Py enviroments
 venv/
