@@ -15,3 +15,4 @@ translation/sample_5k_translated.*
 .ipynb_checkpoints/
 translation/to_check_by_hand.xlsx
 translation/*backup*
+.DS_Store
