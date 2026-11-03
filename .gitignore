@@ -8,3 +8,5 @@ all_multi_parapgraphs_2022_2026.csv
 venv/
 env/
 __pycache__/
+cold_annotated_5k.json
+sample_5k_translated.xlsx
