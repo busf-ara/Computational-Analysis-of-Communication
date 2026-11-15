@@ -12,7 +12,8 @@ Run (from the disagreements/ folder):
 
 Output: prompt_disagreements.xlsx
     Summary            how often the two prompts agree, per dimension
-    Warm disagreements one row per paragraph where the warm labels differ
+    Warm disagreements one row per paragraph where the warm labels differ: both labels,
+                       both explanations, text and group; every other input column is kept but hidden
     Cold disagreements the same for cold (only if cold files are given)
     All labels         every paragraph with every prompt's label, side by side
 """
@@ -23,7 +24,6 @@ import pandas as pd
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
-TEXT_COLS = ["row_id", "article_id", "pub", "group", "translation", "text_block"]
 OUTPUT = "prompt_disagreements.xlsx"
 
 
@@ -35,20 +35,21 @@ def to_bool(x):
 
 def load(path, dim, name):
     d = pd.read_excel(path)
-    d = d.drop_duplicates("row_id", keep="last")
-    d[f"{dim}_{name}"] = d["label"].map(to_bool)
-    d[f"{dim}_{name}_why"] = d["explanation"]
-    return d
+    return d.drop_duplicates("row_id", keep="last")
 
 
 def compare(dim, path_a, path_b, a, b):
     da, db = load(path_a, dim, a), load(path_b, dim, b)
-    keep = [c for c in TEXT_COLS if c in da.columns]
-    m = da[keep + [f"{dim}_{a}", f"{dim}_{a}_why"]].merge(
-        db[["row_id", f"{dim}_{b}", f"{dim}_{b}_why"]], on="row_id", how="outer")
-    la, lb = m[f"{dim}_{a}"], m[f"{dim}_{b}"]
+    m = da.merge(db, on="row_id", how="outer", suffixes=(f" [{a}]", f" [{b}]"))
+    # A column that is identical in both files (text, group, ...) is kept once; the rest keep one copy per prompt.
+    for c in [c for c in da.columns if c not in ("row_id", "label", "explanation") and c in db.columns]:
+        ca, cb = f"{c} [{a}]", f"{c} [{b}]"
+        if m[ca].fillna("<NA>").astype(str).equals(m[cb].fillna("<NA>").astype(str)):
+            m = m.drop(columns=cb).rename(columns={ca: c})
+    la, lb = m[f"label [{a}]"].map(to_bool), m[f"label [{b}]"].map(to_bool)
+    m[f"{a} label"], m[f"{b} label"] = la.map({True: "TRUE", False: "FALSE"}), lb.map({True: "TRUE", False: "FALSE"})
     both = la.notna() & lb.notna()
-    m[f"{dim}_agree"] = (la == lb).where(both)
+    agree = (la == lb).where(both)
     stats = {
         "Dimension": dim,
         f"Rows in {a}": int(la.notna().sum()),
@@ -60,27 +61,29 @@ def compare(dim, path_a, path_b, a, b):
         "Both FALSE": int(((la == False) & (lb == False)).sum()),
         f"Only {a} TRUE": int(((la == True) & (lb == False)).sum()),
         f"Only {b} TRUE": int(((la == False) & (lb == True)).sum()),
-        "Disagreements": int((m[f"{dim}_agree"] == False).sum()),
-        "Agreement %": round(100 * (m[f"{dim}_agree"] == True).sum() / max(both.sum(), 1), 1),
+        "Disagreements": int((agree == False).sum()),
+        "Agreement %": round(100 * (agree == True).sum() / max(both.sum(), 1), 1),
     }
-    dis = m[m[f"{dim}_agree"] == False].copy()
-    dis.insert(1, "Which prompt said TRUE", dis[f"{dim}_{a}"].map({True: f"only {a}", False: f"only {b}"}))
-    dis = dis.sort_values(["Which prompt said TRUE", "row_id"])
-    dis = dis[["row_id", "Which prompt said TRUE", "group", "pub", "translation",
-               f"{dim}_{a}_why", f"{dim}_{b}_why", "text_block", "article_id"]]
-    dis = dis.rename(columns={"translation": "Paragraph (English)", "text_block": "German original",
-                              f"{dim}_{a}_why": f"Why {a} said {'TRUE/FALSE'}",
-                              f"{dim}_{b}_why": f"Why {b} said {'TRUE/FALSE'}"})
-    for c in ["Hamid", "Omar", "Ara", "Arhan", "Final label (team)", "Edge case? (Y/N)", "Note"]:
+    m["Disagreement"] = la.map({True: f"{a} TRUE / {b} FALSE", False: f"{a} FALSE / {b} TRUE"}).where(agree == False)
+    m[f"Why {a}"], m[f"Why {b}"] = m[f"explanation [{a}]"], m[f"explanation [{b}]"]
+    shown = ["row_id", "group", f"{a} label", f"{b} label", "Disagreement", "translation", f"Why {a}", f"Why {b}"]
+    coders = ["Hamid", "Omar", "Ara", "Arhan", "Final label (team)", "Edge case? (Y/N)", "Note"]
+    dis = m[agree == False].copy()
+    for c in coders:
         dis[c] = None
-    return m, dis, stats
+    rest = [c for c in m.columns if c not in shown and c not in (f"explanation [{a}]", f"explanation [{b}]")]
+    dis = dis[shown + coders + rest].sort_values(["Disagreement", "row_id"])
+    dis = dis.rename(columns={"translation": "Paragraph (English)"})
+    alllab = m[["row_id", "group", f"{a} label", f"{b} label"]].assign(**{f"{dim}_agree": agree})
+    alllab = alllab.rename(columns={f"{a} label": f"{dim} {a}", f"{b} label": f"{dim} {b}"})
+    return alllab, dis, stats, len(shown) + len(coders)
 
 
-def style(ws, n_rows, label_cols):
+def style(ws, n_rows, label_cols, n_visible):
     head = PatternFill("solid", fgColor="1F4E78")
     todo = PatternFill("solid", fgColor="FFF9DB")
     wrap = Alignment(wrap_text=True, vertical="top")
-    widths = {"A": 7, "B": 14, "C": 8, "D": 12, "E": 70, "F": 45, "G": 45, "H": 50, "I": 12}
+    widths = {"A": 7, "B": 8, "C": 10, "D": 10, "E": 24, "F": 70, "G": 45, "H": 45}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
     for c in ws[1]:
@@ -94,11 +97,13 @@ def style(ws, n_rows, label_cols):
     ws.add_data_validation(tf)
     ws.add_data_validation(yn)
     for i, col in enumerate(label_cols):
-        letter = ws.cell(1, ws.max_column - len(label_cols) + 1 + i).column_letter
+        letter = ws.cell(1, n_visible - len(label_cols) + 1 + i).column_letter
         ws.column_dimensions[letter].width = 11 if i < 5 else 30
         for r in range(2, n_rows + 2):
             ws[f"{letter}{r}"].fill = todo
         (tf if i < 5 else yn if i == 5 else None) and (tf if i < 5 else yn).add(f"{letter}2:{letter}{n_rows + 1}")
+    for j in range(n_visible + 1, ws.max_column + 1):  # all other columns: hidden, not removed
+        ws.column_dimensions[ws.cell(1, j).column_letter].hidden = True
     ws.freeze_panes = "C2"
     ws.auto_filter.ref = ws.dimensions
 
@@ -113,21 +118,23 @@ if __name__ == "__main__":
         raise SystemExit("Give at least --warm A B or --cold A B")
     a, b = args.names
 
-    merged, sheets, summary = None, {}, []
+    merged, sheets, summary, visible = None, {}, [], {}
     for dim, paths in (("warm", args.warm), ("cold", args.cold)):
         if not paths:
             continue
-        m, dis, stats = compare(dim, paths[0], paths[1], a, b)
+        m, dis, stats, n_visible = compare(dim, paths[0], paths[1], a, b)
+        visible[dim] = n_visible
         sheets[f"{dim.capitalize()} disagreements"] = dis
         summary.append(stats)
-        merged = m if merged is None else merged.merge(m.drop(columns=[c for c in TEXT_COLS if c != "row_id" and c in m]), on="row_id", how="outer")
+        merged = m if merged is None else merged.merge(m.drop(columns="group"), on="row_id", how="outer")
         print(f"{dim}: {stats['Disagreements']} disagreements, agreement {stats['Agreement %']}%")
 
     with pd.ExcelWriter(OUTPUT, engine="openpyxl") as w:
         pd.DataFrame(summary).set_index("Dimension").T.to_excel(w, sheet_name="Summary")
         for name, d in sheets.items():
             d.to_excel(w, sheet_name=name, index=False)
-            style(w.sheets[name], len(d), ["Hamid", "Omar", "Ara", "Arhan", "Final label (team)", "Edge case? (Y/N)", "Note"])
+            style(w.sheets[name], len(d), ["Hamid", "Omar", "Ara", "Arhan", "Final label (team)", "Edge case? (Y/N)", "Note"],
+                  visible[name.split()[0].lower()])
         merged.sort_values("row_id").to_excel(w, sheet_name="All labels", index=False)
         w.sheets["Summary"].column_dimensions["A"].width = 24
     print(f"Saved {OUTPUT}")

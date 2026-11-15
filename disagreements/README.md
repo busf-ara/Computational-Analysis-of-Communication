@@ -9,7 +9,8 @@ labels by hand; the agreed ones become edge cases for the validation set.
 
 Input files need `row_id`, `label` and `explanation` columns (the format of the annotation notebooks).
 Output: `prompt_disagreements.xlsx` with a Summary sheet, one disagreement sheet per dimension
-(with empty columns for each coder, the team's final label and an edge-case flag), and all labels side by side.
+(each prompt's label and explanation, the text and the group, plus empty columns for each coder, the team's
+final label and an edge-case flag; every other input column is kept but hidden), and all labels side by side.
 Data files stay out of Git.
 
 Warm, 13 Nov run: explicit 202 TRUE, implicit 234 TRUE, both TRUE 160, 116 disagreements
