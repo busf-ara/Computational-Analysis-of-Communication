@@ -6,6 +6,16 @@ all_multi_parapgraphs_2022_2026.csv
 warmth_annotation_results.xlsx
 sample_5k_translated.xlxs
 
+#output files
+sample_5k_warmth_e_annotated.json 
+sample_5k_warmth_i_annotated.json 
+
+sample_5k_warmth_e_annotated.xlsx 
+sample_5k_warmth_i_annotated.xlsx 
+
+warmth_e_annotation_checkpoint.jsonl
+warmth_i_annotation_checkpoint.jsonl
+
 
 #Py enviroments
 venv/
