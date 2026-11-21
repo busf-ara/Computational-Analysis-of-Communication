@@ -21,6 +21,10 @@ sample_5k_cold_i_annotated.xlsx
 cold_i_annotation_checkpoint.jsonl
 cold_annotated_5k.json
 
+sample_5k_cold_e_annotated.json
+sample_5k_cold_e_annotated.xlsx
+cold_e_annotation_checkpoint.jsonl
+
 
 #Py enviroments
 venv/
